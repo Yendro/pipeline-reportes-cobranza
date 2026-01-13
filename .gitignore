@@ -1,0 +1,13 @@
+# Envirionments
+.venv
+.vscode
+.env
+
+# Build
+reports
+
+# Logs
+transformacion_errores.log
+
+# Cache
+**__pycache__
