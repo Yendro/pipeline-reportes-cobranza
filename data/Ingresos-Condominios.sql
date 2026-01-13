@@ -1,0 +1,28 @@
+WITH IngresosCondominios AS (
+  SELECT 
+      IDINGRESO,	
+      IDCLIENTE,	
+      DESARROLLO,	
+      UNIDAD,	
+      CONCAT("STP_", STP) AS  STP,	
+      FOLIO,
+      FECHA_INGRESO,	
+      FECHA_REGISTRO,	
+      CLIENTE,	
+      MONTO_PAGADO,	
+      BANCO,
+      NUMERO_CUENTA,	
+      FORMA_PAGO,	
+      USUARIOS_REGISTRO,	
+      STATUS,	
+      SISTEMA,	
+      SALDOPENDIENTE_POR_APLICAR,	
+      id_ingreso_dt,	
+      MONTO_CUOTA,	
+      MONTO_RESERVA,	
+      MONTO_FONDO
+  FROM `terraviva-439415.sheets_condominios.sheets_flujo_ingresos`
+)
+SELECT * FROM IngresosCondominios
+WHERE EXTRACT(YEAR FROM fecha_ingreso) = EXTRACT(YEAR FROM CURRENT_DATE())
+  AND EXTRACT(MONTH FROM fecha_ingreso) = EXTRACT(MONTH FROM CURRENT_DATE())
