@@ -1,5 +1,3 @@
--- Feat 22-12-2025: Se agrego el desglose de ingresos.
-
 WITH IngresosCondominiosBI AS (
     WITH temp_nombres_clientes AS (
         SELECT  
@@ -356,23 +354,31 @@ SELECT
     Banco,
     FormaPago,
     Monto,
-    CASE 
-        WHEN MontoCuota IS NULL AND MontoReserva IS NULL AND MontoFondo IS NULL THEN 0
-        ELSE COALESCE(MontoCuota, 0)
-    END AS MontoCuota,
-    CASE 
-        WHEN MontoCuota IS NULL AND MontoReserva IS NULL AND MontoFondo IS NULL THEN 0
-        ELSE COALESCE(MontoReserva, 0)
-    END AS MontoReserva,
-    CASE 
-        WHEN MontoCuota IS NULL AND MontoReserva IS NULL AND MontoFondo IS NULL THEN 0
-        ELSE COALESCE(MontoFondo, 0)
-    END AS MontoFondo,
+    CAST(
+        CASE 
+            WHEN MontoCuota IS NULL AND MontoReserva IS NULL AND MontoFondo IS NULL THEN 0
+            ELSE COALESCE(MontoCuota, 0)
+        END AS FLOAT64
+    ) AS MontoCuota,
+    CAST(
+        CASE 
+            WHEN MontoCuota IS NULL AND MontoReserva IS NULL AND MontoFondo IS NULL THEN 0
+            ELSE COALESCE(MontoReserva, 0)
+        END AS FLOAT64
+    ) AS MontoReserva,
+    CAST(
+        CASE 
+            WHEN MontoCuota IS NULL AND MontoReserva IS NULL AND MontoFondo IS NULL THEN 0
+            ELSE COALESCE(MontoFondo, 0)
+        END AS FLOAT64
+    ) AS MontoFondo,
     -- FONDOS FUTUROS (SIN ESTADOS DE CUENTA)
-    CASE
-        WHEN MontoCuota IS NULL AND MontoReserva IS NULL AND MontoFondo IS NULL THEN Monto
-        ELSE 0
-    END AS FondosFuturos
+    CAST(    
+        CASE
+            WHEN MontoCuota IS NULL AND MontoReserva IS NULL AND MontoFondo IS NULL THEN Monto
+            ELSE 0
+        END AS FLOAT64
+    ) AS FondosFuturos
 FROM IngresosCondominiosBI
 WHERE Desarrollo IS NOT NULL
     AND Desarrollo != 'Demo'

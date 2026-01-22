@@ -838,7 +838,7 @@ WITH Ventas3Version AS (
             INITCAP(TRIM(v.NombreCoproConcatenado)) AS Copropietario, 
             v.telefono_celular,
             v.correo_electronico,   
-            v.referencia_banco AS CuanetaBeneficiarioReal,
+            v.referencia_banco AS CuentaBeneficiarioReal,
             v.cuentaBeneficiario, 
             v.nombre_status AS Estatus,
             v.Fecha_Contrato,
@@ -886,26 +886,26 @@ WITH Ventas3Version AS (
             nv.Equipo,
             telefono_celular,
             correo_electronico,   
-            CONCAT('stp_', CuanetaBeneficiarioReal) AS CuanetaBeneficiarioReal, 
+            CONCAT('stp_', CuentaBeneficiarioReal) AS CuentaBeneficiarioReal, 
             Estatus,
             Fecha_Contrato,
             Fecha_Firma_Contrato,
-            precio_venta,  
+            CAST(precio_venta AS FLOAT64) AS Precio_venta, 
             dia_pago,
-            Total_cobrado,
-            Enganche_pagado,
-            total_por_cobrar,
+            CAST(Total_cobrado AS FLOAT64) AS Total_cobrado,
+            CAST(Enganche_pagado AS FLOAT64) AS Enganche_pagado,
+            CAST(total_por_cobrar AS FLOAT64) AS Total_por_cobrar,
             Meses_Financia,
-            Mensualidad,
-            Total_Requerido, -- ESTA SUMA SOLO SUMA LAS MENSUALIDADES FALTANTES NO CUENTA LOS CARGOS POR ADEUDO(SI QUIERO CONSIDERAR LAS PENALIZAICONES SUMAR 500 PESOS POR CADA PAGO ATRASADO(SALDO))
+            CAST(Mensualidad AS FLOAT64) AS Mensualidad,
+            CAST(Total_Requerido AS FLOAT64) AS Total_Requerido, -- ESTA SUMA SOLO SUMA LAS MENSUALIDADES FALTANTES NO CUENTA LOS CARGOS POR ADEUDO(SI QUIERO CONSIDERAR LAS PENALIZAICONES SUMAR 500 PESOS POR CADA PAGO ATRASADO(SALDO))
             Dias_Atrasado,
             fecha_ultimo_ingreso,
             --Cobrado, -- DEPENDE DE LO TOTAL_QUERERIDO ENTONCES SI CAMBIAS TOTAL REQUERIDO , CAMBIA AQUI
-            monto_ultimo_ingreso_cobrado AS Cobrado,
-            Acumado_Vencido,
+            CAST(monto_ultimo_ingreso_cobrado AS FLOAT64) AS Cobrado,
+            CAST(Acumado_Vencido AS FLOAT64) AS Acumado_Vencido,
             numero_pago,
             siguiente_fecha_pago AS Fecha_Proximo_pago,
-            monto_ultimo_ingreso,
+            CAST(monto_ultimo_ingreso AS FLOAT64) AS Monto_ultimo_ingreso,
             fecha_promesa
     FROM VentasFinal AS v 
     LEFT JOIN `Dimensiones.NombresVendedores` AS nv ON v.Asesor = nv.Vendedor
@@ -913,4 +913,4 @@ WITH Ventas3Version AS (
 SELECT 
     *
 FROM Ventas3Version
-GROUP BY id_venta, id, Marca, Desarrollo, Privada, Etapa, Unidad, Cliente, Copropietario, Asesor, Sucursal, Tipo, Equipo, telefono_celular, correo_electronico,  CuanetaBeneficiarioReal,  Estatus, Fecha_Contrato, Fecha_Firma_Contrato, precio_venta,   dia_pago, Total_cobrado, Enganche_pagado, total_por_cobrar, Meses_Financia, Mensualidad, Total_Requerido, Dias_Atrasado, fecha_ultimo_ingreso, Cobrado, Acumado_Vencido, numero_pago, Fecha_Proximo_pago, monto_ultimo_ingreso, fecha_promesa
+GROUP BY id_venta, id, Marca, Desarrollo, Privada, Etapa, Unidad, Cliente, Copropietario, Asesor, Sucursal, Tipo, Equipo, telefono_celular, correo_electronico,  CuentaBeneficiarioReal,  Estatus, Fecha_Contrato, Fecha_Firma_Contrato, precio_venta,   dia_pago, Total_cobrado, Enganche_pagado, total_por_cobrar, Meses_Financia, Mensualidad, Total_Requerido, Dias_Atrasado, fecha_ultimo_ingreso, Cobrado, Acumado_Vencido, numero_pago, Fecha_Proximo_pago, monto_ultimo_ingreso, fecha_promesa

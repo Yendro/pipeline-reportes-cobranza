@@ -1,1 +1,15 @@
-SELECT * FROM `terraviva-439415.Reporte_condominio.Condo_cartera_vencida`
+SELECT
+  IDCLIENTE,
+  DESARROLLO,
+  UNIDAD,
+  CLIENTE,
+  CORREO,
+  TELEFONO,
+  FECHA_NACIMIENTO,
+  CAST(TOTAL_PAGO AS FLOAT64) AS TOTAL_PAGO,
+  CAST(SALDO_VENCIDO AS FLOAT64) AS SALDO_VENCIDO,
+  FECHAPAGO,
+  DIA_VENCIDO,
+  nombre,
+  SISTEMA
+FROM `terraviva-439415.Reporte_condominio.Condo_cartera_vencida`
