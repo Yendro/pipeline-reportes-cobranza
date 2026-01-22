@@ -5,6 +5,7 @@
 
 # Build
 reports
+logs.log
 
 # Logs
 transformacion_errores.log
