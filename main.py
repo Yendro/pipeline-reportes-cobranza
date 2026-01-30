@@ -1,19 +1,22 @@
 import sys
 import logging
-from pathlib import Path
 from src.bigquery_client import BigQueryClient
 from src.pipeline import procesar_bigquery_dataframe
 from src.config import configurar_logger
 
-def main():
-    """Función principal del pipeline"""
+logger = logging.getLogger(__name__)
+
+def main() -> bool:
+    """Función principal del pipeline de reportes"""
     configurar_logger()
-    logger = logging.getLogger(__name__)
     
     try:
-        logger.info("===== REPORTES DE POST VENTA =====")
+        logger.info("=" * 60)
+        logger.info("REPORTES DE POST VENTA - INICIANDO PIPELINE")
+        logger.info("=" * 60)
         
-        logger.info("Extrayendo datos de BigQuery de todas las consultas")
+        # 1. Extraer datos de BigQuery
+        logger.info("1. Extrayendo datos de BigQuery")
         bq_client = BigQueryClient()
         dataframes_dict = bq_client.ejecutar_todas_consultas()
         
@@ -21,30 +24,27 @@ def main():
             logger.warning("No se obtuvieron datos de BigQuery")
             return False
         
-        logger.info("="*60)
-        logger.info(f"Se procesaron {len(dataframes_dict)} consultas exitosamente")
+        logger.info(f"✓ Se procesaron {len(dataframes_dict)} consultas exitosamente")
         
-        # Mostrar estadísticas de cada consulta
-        for nombre, df in dataframes_dict.items():
-            logger.info(f"Datos en {nombre}: {len(df)} filas, {len(df.columns)} columnas")
-
-        logger.info("="*60)
-        logger.info("Transformando datos y generando archivos Excel")
+        # 2. Procesar y generar Excel
+        logger.info("2. Generando archivos Excel con formato")
         resultados, carpeta_reporte = procesar_bigquery_dataframe(dataframes_dict)
         
         if resultados:
-            logger.info(f"===== PIPELINE COMPLETADO EXITOSAMENTE =====")
+            logger.info("" + "=" * 60)
+            logger.info("PIPELINE COMPLETADO EXITOSAMENTE")
+            logger.info("=" * 60)
+            logger.info(f"Archivos generados en: {carpeta_reporte}")
             for nombre, archivo in resultados.items():
-                logger.info(f"  ✓ {nombre}: {archivo.name}")
-
-            logger.info(f"Total archivos generados: {len(resultados)}")
+                logger.info(f"  • {archivo.name}")
+            logger.info(f"Total: {len(resultados)} archivos generados")
             return True
         else:
-            logger.error("=== ERROR: No se generaron archivos ===")
+            logger.error("✗ ERROR: No se generaron archivos")
             return False
             
     except Exception as e:
-        logger.error(f"Error en el pipeline principal: {str(e)}", exc_info=True)
+        logger.error(f"✗ ERROR en el pipeline: {str(e)}", exc_info=True)
         return False
 
 if __name__ == "__main__":
