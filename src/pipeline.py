@@ -5,14 +5,15 @@ from numbers import Number
 from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-from src.config import crear_carpeta_reporte, obtener_archivo_de_salida
+from typing import Dict, Optional, Tuple
+from src.config import crear_carpeta_reporte
 
 logger = logging.getLogger(__name__)
 
-# Configuración de formatos para encabezados
+# Estilado para encabezados
 FORMATO_ENCABEZADO = {
     "fill": PatternFill(start_color="0070C0", end_color="0070C0", fill_type="solid"),
-    "font": Font(bold=True, color="FFFFFF", size=11),
+    "font": Font(bold=True, color="FFFFFF", size=12),
     "alignment": Alignment(horizontal="center", vertical="center", wrap_text=True),
     "border": Border(
         left=Side(style='thin'),
@@ -22,9 +23,10 @@ FORMATO_ENCABEZADO = {
     )
 }
 
-CATEGORIAS_FORMATO_EXCEL = {
+# Configuración de formatos
+CATEGORIAS_FORMATO = {
     "fecha": {
-        "nombre_columna": [
+        "columna": [
             # Ingresos-GAIA
             "fecha_ingreso", "fecha_creacion", "fecha_ultimo_ingreso", 
 
@@ -47,13 +49,13 @@ CATEGORIAS_FORMATO_EXCEL = {
         "formato_excel": "DD/MM/YYYY",
     },
     # "fecha_hora": {
-    #     "nombre_columna": [
+    #     "columna": [
     #         "timestamp", "fecha_hora", "datetime"
     #     ],
     #     "formato_excel": "DD/MM/YYYY HH:MM",
     # },
     "moneda": {
-        "nombre_columna": [
+        "columna": [
             # Ingresos-GAIA
             "Cantidad", "Gastos_gestion",
 
@@ -76,7 +78,7 @@ CATEGORIAS_FORMATO_EXCEL = {
         "formato_excel": '"$"#,##0.00',
     },
     "numero": {
-        "nombre_columna": [
+        "columna": [
             # Ingresos-GAIA
             "id_venta", "id_ingreso",
 
@@ -99,13 +101,13 @@ CATEGORIAS_FORMATO_EXCEL = {
         "formato_excel": '0',
     },
     # "numero_decimal": {
-    #     "nombre_columna": [
+    #     "columna": [
     #         "metros", "unidades", "numero", "count", "cantidad_total",
     #     ],
     #     "formato_excel": '#,##0',
     # },
     "texto": {
-        "nombre_columna": [
+        "columna": [
             # Ingresos-GAIA
             "id", "Marca", "Desarrollo", "Privada", "Etapa", "Unidad", "Folio", "Cliente", "STP", "Estatus", "forma_de_pago", "concepto", "flujo_concepto", "Banco", "Usuario_asignacion",
 
@@ -122,8 +124,8 @@ CATEGORIAS_FORMATO_EXCEL = {
             "folio", "Usuario", "cuentaBeneficiario", "FormaPago",
 
             # EstadosCuenta-Condominios
-            # "id", "Marca", "Desarrollo", "Unidad", "Etapa", "Cliente",
-            "Correo", "Telefono", "Beneficiario_STP",
+            # "Marca", "Desarrollo", "Unidad", "Etapa", "Cliente",
+            "Id", "Correo", "Telefono", "Beneficiario_STP",
             
             # CarteraVencida-Condominios
             # "DESARROLLO", "UNIDAD", "CLIENTE", "SISTEMA",
@@ -133,258 +135,176 @@ CATEGORIAS_FORMATO_EXCEL = {
     },
 }
 
-def detectar_categoria_columna(nombre_columna):
-    """Detecta la categoría de una columna basada en palabras clave"""
-    if not nombre_columna:
+class FormatoExcel:
+    """Manejador de formatos para archivos Excel"""
+    
+    @staticmethod
+    def detectar_categoria_columna(nombre_columna: str) -> Optional[str]:
+        """Detecta la categoría de una columna basada en palabras clave"""
+        if not nombre_columna:
+            return None
+        
+        nombre = str(nombre_columna).strip()
+        
+        for categoria, config in CATEGORIAS_FORMATO.items():
+            for keyword in config["columna"]:
+                if keyword in nombre:
+                    return categoria
+        
         return None
     
-    nombre = str(nombre_columna).lower().strip()
+    @staticmethod
+    def obtener_formato_para_columna(nombre_columna: str) -> Optional[str]:
+        """Obtiene el formato Excel para una columna basado en su nombre"""
+        categoria = FormatoExcel.detectar_categoria_columna(nombre_columna)
+        return CATEGORIAS_FORMATO.get(categoria, {}).get("formato_excel") if categoria else None
     
-    for categoria, config in CATEGORIAS_FORMATO_EXCEL.items():
-        for keyword in config["nombre_columna"]:
-            # Busca coincidencias insensibles a mayúsculas/minúsculas
-            if keyword.lower() in nombre:
-                return categoria
-    
-    return None
-
-def obtener_formato_para_columna(nombre_columna):
-    """
-    Busca el formato apropiado para una columna basado en su nombre.
-    
-    Args:
-        nombre_columna (str): Nombre de la columna
-    
-    Returns:
-        str: Formato de Excel o None si no hay coincidencia
-    """
-    categoria = detectar_categoria_columna(nombre_columna)
-
-    if categoria:
-        return CATEGORIAS_FORMATO_EXCEL[categoria]["formato_excel"]
-
-    return None
-
-def normalizar_df_para_excel(df):
-    """
-    Normaliza tipos de datos para que Excel aplique formatos correctamente.
-    """
-    df = df.copy()
-
-    # Verificar el tipo de dato que se va a aplicar el formato
-    # print(df[col].head())
-    # print(df[col].apply(type).value_counts())
-    
-    for col in df.columns:
-        categoria = detectar_categoria_columna(col)
+    @staticmethod
+    def normalizar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+        """Normaliza tipos de datos para que Excel aplique formatos correctamente"""
+        df = df.copy()
         
-        if categoria == "fecha":
-            try:
-                # Convertir a datetime, manejando diferentes formatos
-                df[col] = pd.to_datetime(df[col], errors="coerce")
-                # Remover zona horaria si existe
-                if hasattr(df[col], 'dt'):
-                    df[col] = df[col].dt.tz_localize(None)
-            except Exception:
-                pass
-                
-        elif categoria == "moneda":
-            try:
-                # Limpiar caracteres no numéricos como $, , (comas), espacios
-                if df[col].dtype == 'object':
-                    # Remover símbolos de moneda, comas y espacios
-                    df[col] = df[col].astype(str).str.replace(r'[^\d\.\-]', '', regex=True)
-                    # Reemplazar múltiples puntos por uno solo (para decimales)
-                    df[col] = df[col].str.replace(r'\.+', '.', regex=True)
-                
-                # Convertir a numérico
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-                
-                # Redondear a 2 decimales para moneda
-                df[col] = df[col].round(2)
-                
-            except Exception as e:
-                logger.warning(f"No se pudo convertir columna {col} a moneda: {str(e)}")
-                
-        elif categoria == "numero":
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype('Int64')
+        for col in df.columns:
+            categoria = FormatoExcel.detectar_categoria_columna(col)
             
-        elif categoria == "numero_decimal":
-            df[col] = pd.to_numeric(df[col], errors="coerce").round(2)
-            
-        elif categoria == "texto":
-            df[col] = df[col].fillna('').astype(str).str.strip()
-    
-    return df
+            if categoria == "fecha":
+                try:
+                    df[col] = pd.to_datetime(df[col], errors="coerce")
+                    if hasattr(df[col], 'dt'):
+                        df[col] = df[col].dt.tz_localize(None)
+                except Exception:
+                    logger.debug(f"No se pudo convertir columna {col} a fecha")
+                    
+            elif categoria == "moneda":
+                try:
+                    # Limpiar caracteres no numéricos como $, , (comas), espacios
+                    if df[col].dtype == 'object':
+                        # Remover símbolos de moneda, comas y espacios
+                        df[col] = df[col].astype(str).str.replace(r'[^\d\.\-]', '', regex=True)
+                        # Reemplazar múltiples puntos por uno solo (para decimales)
+                        df[col] = df[col].str.replace(r'\.+', '.', regex=True)
 
-def crear_excel_con_formato(df, output_path, nombre_consulta):
+                    # Convertir a numérico
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+                    # Redondear a 2 decimales para moneda
+                    df[col] = df[col].round(2)
+                    
+                except Exception as e:
+                    logger.warning(f"No se pudo convertir columna {col} a moneda: {str(e)}")
+                    
+            elif categoria == "numero":
+                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype('Int64')
+
+            # elif categoria == "numero_decimal":
+            #     df[col] = pd.to_numeric(df[col], errors="coerce").round(2)
+                
+            elif categoria == "texto":
+                df[col] = df[col].fillna('').astype(str).str.strip()
+        
+        return df
+    
+    @staticmethod
+    def aplicar_formato_excel(archivo_excel: Path) -> bool:
+        """Aplica formato profesional a un archivo Excel"""
+        try:
+            workbook = load_workbook(archivo_excel)
+            worksheet = workbook.active
+            
+            # Aplicar formato a encabezados
+            for col in range(1, worksheet.max_column + 1):
+                cell = worksheet.cell(row=1, column=col)
+                cell.fill = FORMATO_ENCABEZADO["fill"]
+                cell.font = FORMATO_ENCABEZADO["font"]
+                cell.alignment = FORMATO_ENCABEZADO["alignment"]
+                cell.border = FORMATO_ENCABEZADO["border"]
+            
+            # Ajustar ancho de columnas
+            for column_cells in worksheet.columns:
+                column_letter = column_cells[0].column_letter
+                max_length = max(
+                    (len(str(cell.value)) for cell in column_cells if cell.value),
+                    default=0
+                )
+                adjusted_width = min(50, max(8, (max_length + 2) * 1.1))
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+            
+            # Aplicar formatos específicos a datos
+            columnas_formateadas = 0
+            total_columnas = 0
+            
+            font_data = Font(size=12)
+            alignment_data = Alignment(horizontal='left', vertical='center')
+
+            for col in range(1, worksheet.max_column + 1):
+                header_cell = worksheet.cell(row=1, column=col)
+                if header_cell.value:
+                    total_columnas += 1
+                    formato = FormatoExcel.obtener_formato_para_columna(header_cell.value)
+
+                    if formato:
+                        columnas_formateadas += 1
+                        # Aplicar formato específico y estilo general
+                        for row in range(2, worksheet.max_row + 1):
+                            cell = worksheet.cell(row=row, column=col)
+                            if cell.value is not None:
+                                # Formato numérico
+                                if "$" in formato and isinstance(cell.value, (int, float)):
+                                    cell.number_format = formato
+                                    if isinstance(cell.value, float):
+                                        cell.value = round(cell.value, 2)
+                                else:
+                                    cell.number_format = formato
+                                # Estilo general
+                                cell.font = font_data
+                                cell.alignment = alignment_data
+            
+            workbook.save(archivo_excel)
+            logger.info(f"Formato aplicado a {columnas_formateadas}/{total_columnas} columnas")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error aplicando formato Excel: {str(e)}")
+            return False
+
+
+def crear_excel_con_formato(df: pd.DataFrame, output_path: Path, nombre_consulta: str) -> bool:
     """
     Crea un archivo Excel con formato aplicado automáticamente.
     
     Args:
         df: DataFrame de pandas
         output_path: Ruta donde guardar el archivo
+        nombre_consulta: Nombre de la consulta para nombrar la hoja
     
     Returns:
         bool: True si se creó correctamente
     """
     try:
-        # Guardar DataFrame como Excel
-        df = normalizar_df_para_excel(df)
-
-        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name=f'{nombre_consulta}')
+        # Normalizar y guardar DataFrame
+        df = FormatoExcel.normalizar_dataframe(df)
         
-        # Aplicar formato al archivo guardado
-        return aplicar_formato_excel(output_path)
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            nombre_hoja = nombre_consulta[:31]  # Excel limita a 31 caracteres
+            df.to_excel(writer, index=False, sheet_name=nombre_hoja)
+        
+        # Aplicar formato
+        return FormatoExcel.aplicar_formato_excel(output_path)
         
     except Exception as e:
         logger.error(f"Error creando Excel con formato: {str(e)}")
         return False
 
-def aplicar_formato_excel(archivo_excel):
-    """
-    Aplica formato profesional a un archivo Excel.
-    """
-    try:
-        workbook = load_workbook(archivo_excel)
-        worksheet = workbook.active
-        
-        # Aplicar formato a encabezados
-        aplicar_formato_encabezados(worksheet)
-        
-        # Ajustar ancho de columnas
-        ajustar_ancho_columnas(worksheet)
-        
-        # Aplicar formatos específicos a datos
-        aplicar_formatos_datos_normalizado(worksheet)
-        
-        # Guardar cambios
-        workbook.save(archivo_excel)
-        logger.debug(f"Formato aplicado a: {archivo_excel.name}")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error en aplicar_formato_excel: {str(e)}")
-        return False
 
-def aplicar_formato_encabezados(worksheet):
-    """Aplica formato a la fila de encabezados"""
-    if worksheet.max_row == 0 or worksheet.max_column == 0:
-        return
-    
-    for col in range(1, worksheet.max_column + 1):
-        cell = worksheet.cell(row=1, column=col)
-        
-        # Aplicar estilos
-        cell.fill = FORMATO_ENCABEZADO["fill"]
-        cell.font = FORMATO_ENCABEZADO["font"]
-        cell.alignment = FORMATO_ENCABEZADO["alignment"]
-        cell.border = FORMATO_ENCABEZADO["border"]
-        
-        # # Opcional: convertir a mayúsculas
-        # if cell.value:
-        #     cell.value = str(cell.value).strip().upper()
-
-def ajustar_ancho_columnas(worksheet, max_width=50, min_width=8):
-    """Ajusta automáticamente el ancho de las columnas"""
-    for column_cells in worksheet.columns:
-        column_letter = column_cells[0].column_letter
-        max_length = 0
-        
-        # Encontrar la longitud máxima del contenido
-        for cell in column_cells:
-            try:
-                if cell.value:
-                    cell_length = len(str(cell.value))
-                    if cell_length > max_length:
-                        max_length = cell_length
-            except:
-                pass
-        
-        # Calcular ancho ajustado
-        adjusted_width = (max_length + 2) * 1.1
-        adjusted_width = max(min_width, min(adjusted_width, max_width))
-        
-        worksheet.column_dimensions[column_letter].width = adjusted_width
-
-# def aplicar_formatos_datos_normalizado(worksheet):
-#     """
-#     Aplica formatos específicos a las columnas de datos usando el mapeo normalizado.
-#     """
-#     if worksheet.max_row < 2 or worksheet.max_column == 0:
-#         return
-    
-#     # Crear diccionario de encabezados con su índice de columna
-#     encabezados = {}
-#     for col in range(1, worksheet.max_column + 1):
-#         header_cell = worksheet.cell(row=1, column=col)
-#         if header_cell.value:
-#             encabezados[col] = str(header_cell.value).strip()
-    
-#     # Para cada columna, buscar y aplicar formato
-#     columnas_formateadas = 0
-#     for col_idx, nombre_columna in encabezados.items():
-#         formato = obtener_formato_para_columna(nombre_columna)
-        
-#         if formato:
-#             # Aplicar formato a todas las celdas de esta columna (excepto encabezado)
-#             for row in range(2, worksheet.max_row + 1):
-#                 cell = worksheet.cell(row=row, column=col_idx)
-#                 if isinstance(cell.value, (Number, datetime)):
-#                     cell.number_format = formato
-#             columnas_formateadas += 1
-    
-#     logger.info(f"Formato aplicado a {columnas_formateadas} de {len(encabezados)} columnas")
-
-def aplicar_formatos_datos_normalizado(worksheet):
-    """
-    Aplica formatos específicos a las columnas de datos usando el mapeo normalizado.
-    """
-    if worksheet.max_row < 2 or worksheet.max_column == 0:
-        return
-    
-    # Crear diccionario de encabezados con su índice de columna
-    encabezados = {}
-    for col in range(1, worksheet.max_column + 1):
-        header_cell = worksheet.cell(row=1, column=col)
-        if header_cell.value:
-            encabezados[col] = str(header_cell.value).strip()
-    
-    # Para cada columna, buscar y aplicar formato
-    columnas_formateadas = 0
-    for col_idx, nombre_columna in encabezados.items():
-        formato = obtener_formato_para_columna(nombre_columna)
-        
-        if formato:
-            # Aplicar formato a todas las celdas de esta columna (excepto encabezado)
-            for row in range(2, worksheet.max_row + 1):
-                cell = worksheet.cell(row=row, column=col_idx)
-                
-                # Aplicar formato según el tipo de dato
-                if cell.value is not None:
-                    # Para moneda, asegurar que sea número
-                    if "$" in formato and isinstance(cell.value, (int, float)):
-                        cell.number_format = formato
-                        # También puedes forzar 2 decimales si es necesario
-                        if isinstance(cell.value, float):
-                            cell.value = round(cell.value, 2)
-                    else:
-                        cell.number_format = formato
-            
-            columnas_formateadas += 1
-            logger.debug(f"Aplicado formato {formato} a columna {nombre_columna}")
-    
-    logger.info(f"Formato aplicado a {columnas_formateadas}/{len(encabezados)} columnas")
-
-def procesar_bigquery_dataframe(dataframes_dict):
+def procesar_bigquery_dataframe(dataframes_dict: Dict[str, pd.DataFrame]) -> Tuple[Dict[str, Path], Path]:
     """
     Procesar múltiples DataFrames y guardar cada uno en archivo Excel con formato.
+    
+    Returns:
+        Tuple[Dict[str, Path], Path]: Resultados y carpeta de reporte
     """
-    # Crear carpeta de reporte
     carpeta_reporte = crear_carpeta_reporte()
     logger.info(f"Carpeta de reporte: {carpeta_reporte}")
-     
+    
     resultados = {}
     
     for nombre_consulta, df in dataframes_dict.items():
@@ -393,19 +313,16 @@ def procesar_bigquery_dataframe(dataframes_dict):
             continue
         
         try:
-            # Generar nombre de archivo
-            nombre_archivo = obtener_archivo_de_salida(nombre_consulta)
+            nombre_archivo = f"{nombre_consulta}.xlsx"
             output_path = carpeta_reporte / nombre_archivo
             
-            logger.info(f"Procesando: {nombre_consulta} ({len(df.columns)} columnas)")
-            # logger.info(f"Procesando: {nombre_consulta} ({len(df)} filas, {len(df.columns)} columnas)")
+            logger.info(f"Procesando: {nombre_consulta}")
             
-            # Crear Excel con formato
             if crear_excel_con_formato(df, output_path, nombre_consulta):
                 resultados[nombre_consulta] = output_path
-                logger.info(f"  ✓ Guardado con formato: {output_path.name}")
+                logger.info(f"✓ Guardado con formato: {output_path.name}")
             else:
-                logger.warning(f"  ⚠ Guardado sin formato: {output_path.name}")
+                logger.warning(f"⚠ Guardado sin formato: {output_path.name}")
                 resultados[nombre_consulta] = output_path
                 
         except Exception as e:
