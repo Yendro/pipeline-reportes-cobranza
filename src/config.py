@@ -14,8 +14,8 @@ REPORTS_DIR = BASE_DIR / 'reports'
 LOG_FILE = BASE_DIR / 'logs.log'
 
 # Configuración BigQuery
-BIGQUERY_CREDENTIALS_PATH = Path(os.getenv('BIGQUERY_CREDENTIALS_PATH', ''))
-PROJECT_ID = os.getenv('BIGQUERY_PROJECT_ID', '')
+BIGQUERY_CREDENTIALS_PATH = Path(os.getenv('BIGQUERY_CREDENTIALS_PATH'))
+PROJECT_ID = os.getenv('BIGQUERY_PROJECT_ID')
 
 def configurar_logger():
     """Configurar sistema de logging"""
